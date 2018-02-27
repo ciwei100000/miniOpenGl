@@ -117,6 +117,38 @@ vector<MGLfloat> multibyvec(const vector<MGLfloat> matrix, const vector<MGLfloat
 	return result;
 }
 
+void transformation(const vector<MGLfloat> mat, vector<MGLfloat>& v)
+{
+	if (mat.size()!=16)
+	{
+		MGL_ERROR("transformation matrix is wrong!");
+	}
+
+	vector<MGLfloat> vec(v.begin(),v.begin()+4);
+	vec = multibyvec(mat,vec);
+	
+	if (planeinfo[0])
+	{
+		vector<MGLfloat> viewpointmat(16,0);
+		viewpointmat[0] = viewpointmat[5] = 1;
+		viewpointmat[10] = (planeinfo[0]+planeinfo[1])/planeinfo[0];
+		viewpointmat[11] = 1/planeinfo[0];
+		viewpointmat[14] = -planeinfo[1];
+		
+		multibyvec(viewpointmat,vec);
+	}
+	
+	for (unsigned int i = 0; i < 3; i += 1)
+	{
+		vec[i] = vec[i]/vec[3];
+	}	
+	
+	for (unsigned int j = 0; j < 4; j += 1)
+	{
+		v[j] = vec[j];
+	}		
+}
+
 void transformation(const vector<MGLfloat> projmat, const vector<MGLfloat> modelmat, vector<MGLfloat>& v)
 {
 	if (projmat.size()!=16 || modelmat.size()!=16)
@@ -182,20 +214,21 @@ void mglReadPixels(MGLsize width,
 	MGLfloat pixel_y = 2.0f/(height-1);
 	
 	vector<Triangle> triangles;
-	vector<MGLfloat> projmat,modelmat;
+	//vector<MGLfloat> projmat,modelmat;
+	vector<MGLfloat> secondmat;
 	
 	if (currentmatmode == MGL_PROJECTION)
 	{
-		projmat = currentmatrix;
+		//projmat = currentmatrix;
 		mglMatrixMode(MGL_MODELVIEW);		
-		modelmat = currentmatrix;
+		secondmat = currentmatrix;
 		mglMatrixMode(MGL_PROJECTION);
 	}
 	else
 	{
-		modelmat = currentmatrix;
+		//modelmat = currentmatrix;
 		mglMatrixMode(MGL_PROJECTION);
-		projmat = currentmatrix;
+		secondmat = currentmatrix;
 		mglMatrixMode(MGL_PROJECTION);
 	}
 	
@@ -204,7 +237,7 @@ void mglReadPixels(MGLsize width,
 	{
 		for (unsigned int j = 0; j < primitives[i].size(); j += 1)
 		{
-			transformation(projmat,modelmat,primitives[i][j]);
+			transformation(secondmat,primitives[i][j]);
 		}
 		if (primitives[i].size()==3)
 		{
@@ -276,6 +309,7 @@ void mglEnd()
 	{
 		for (unsigned int i = 0; i < vertices.size(); i += 1)
 		{
+			transformation(currentmatrix, vertices[i]);
 			primitive.push_back(vertices[i]);
 			if (i % 3 == 2)
 			{
@@ -289,6 +323,7 @@ void mglEnd()
 	{
 		for (unsigned int i = 0; i < vertices.size(); i += 1)
 		{
+			transformation(currentmatrix, vertices[i]);
 			primitive.push_back(vertices[i]);
 			if (i % 4 == 3)
 			{
@@ -471,6 +506,13 @@ void mglScale(MGLfloat x,
               MGLfloat y,
               MGLfloat z)
 {
+	MGLfloat scalemat[16]={0};
+	scalemat[0] = x;
+	scalemat[5] = y;
+	scalemat[10] = z;
+	scalemat[15] = 1;
+	
+	mglMultMatrix(scalemat);
 }
 
 /**
