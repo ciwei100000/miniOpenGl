@@ -23,16 +23,18 @@
 #include <cstdio>
 #include <stack>
 #include <iostream>
+#include <utility>
 
 using namespace std;
 
 const MGLfloat zeromatrix[16] = {0};
 const MGLfloat identity[] = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};
+const double PI = 3.141592653589793;
+
 
 stack<vector<MGLfloat>> projviewstack;
 stack<vector<MGLfloat>> modelviewstack;
 vector<MGLfloat> currentmatrix(identity,identity+16);
-//vector<MGLpixel> zbuffer;
 
 MGLpoly_mode currentpolymode;
 bool glbegin = false;
@@ -59,19 +61,21 @@ class Triangle
 	private:
 		vector<vector<MGLfloat>> vertices;
 		//vector<int> sharededges; //need to consider
-		double area; 
+		MGLfloat area;
+		MGLfloat minX,minY,maxX,maxY;
 		
-		double AreaPixel(const vector<MGLfloat> b, const vector<MGLfloat> c, const MGLfloat x, const MGLfloat y)
+		MGLfloat AreaPixel(const vector<MGLfloat>& b, const vector<MGLfloat>& c, const MGLfloat& x, const MGLfloat& y)
 		{
 			return x*b[1]+b[0]*c[1]+c[0]*y-b[0]*y-c[0]*b[1]-x*c[1];
 		}
 		
-		MGLpixel drawcolor(double alpha,double beta,double gama)
+		MGLpixel drawcolor(const MGLfloat& alpha, const MGLfloat& beta, const MGLfloat& gama)
 		{
-			double orialpha, oribeta, origama; //need to improve
-			orialpha = alpha;
-			oribeta = beta;
-			origama = gama;
+			MGLfloat orialpha, oribeta, origama; //need to improve
+			MGLfloat k = alpha/vertices[0][3] + beta/vertices[1][3] + gama/vertices[2][3];
+			orialpha = alpha/vertices[0][3]/k;
+			oribeta = beta/vertices[1][3]/k;
+			origama = gama/vertices[2][3]/k;
 			int red = (int) (0.5+255 * (orialpha*(vertices[0])[4]+oribeta*(vertices[1])[4]+origama*(vertices[2])[4]));
 			int green = (int) (0.5+255 * (orialpha*(vertices[0])[5]+oribeta*(vertices[1])[5]+origama*(vertices[2])[5]));
 			int blue = (int) (0.5+255 * (orialpha*(vertices[0])[6]+oribeta*(vertices[1])[6]+origama*(vertices[2])[6]));
@@ -81,25 +85,65 @@ class Triangle
 		
 	public:
 		
-		Triangle(const vector<MGLfloat> a, const vector<MGLfloat> b, const vector<MGLfloat> c)
+		Triangle(const vector<MGLfloat>& a, const vector<MGLfloat>& b, const vector<MGLfloat>& c)
 		{
 			vertices.push_back(a);
+			minX = maxX = a[0];
+			minY = maxY = a[1];
+			
 			vertices.push_back(b);
+			minX = min(minX,b[0]);
+			maxX = max(maxX,b[0]);
+			minY = min(minY,b[1]);
+			maxY = max(maxY,b[1]);
+			
 			vertices.push_back(c);
+			minX = min(minX,c[0]);
+			maxX = max(maxX,c[0]);
+			minY = min(minY,c[1]);
+			maxY = max(maxY,c[1]);
+			
 			area = a[0]*b[1]+b[0]*c[1]+c[0]*a[1]-b[0]*a[1]-c[0]*b[1]-a[0]*c[1];
 		}
 		
-		
-		MGLpixel drawpixel(MGLfloat x, MGLfloat y)
+		vector<MGLfloat> getboundary()
 		{
-			double alpha = AreaPixel(vertices[1], vertices[2], x, y)/area;
-			double beta = AreaPixel(vertices[2], vertices[0], x, y)/area;
-			double gama = AreaPixel(vertices[0], vertices[1], x, y)/area;
+			vector<MGLfloat> result(4,0);
+			result[0] = minX;
+			result[1] = minY;
+			result[2] = maxX;
+			result[3] = maxY;
+			
+			return result;
+		}
+		
+		MGLpixel drawpixel(const MGLfloat& x, const MGLfloat& y)
+		{
+			MGLfloat alpha = AreaPixel(vertices[1], vertices[2], x, y)/area;
+			MGLfloat beta = AreaPixel(vertices[2], vertices[0], x, y)/area;
+			MGLfloat gama = AreaPixel(vertices[0], vertices[1], x, y)/area;
 			
 			if(alpha>=0&&alpha<=1&&beta>=0&&beta<=1&&gama>=0&&gama<=1)
 				return drawcolor(alpha, beta, gama); //igore shared edges
 			else
 				return 0;
+		}
+		
+		MGLpixel drawpixel(const MGLfloat& x, const MGLfloat& y, MGLfloat& z)
+		{
+			MGLfloat alpha = AreaPixel(vertices[1], vertices[2], x, y)/area;
+			MGLfloat beta = AreaPixel(vertices[2], vertices[0], x, y)/area;
+			MGLfloat gama = AreaPixel(vertices[0], vertices[1], x, y)/area;		
+			
+			if(alpha>=0&&alpha<=1&&beta>=0&&beta<=1&&gama>=0&&gama<=1)
+			{
+				z = alpha*vertices[0][2]+beta*vertices[1][2] + gama*vertices[2][2];
+				return drawcolor(alpha, beta, gama); //igore shared edges
+			}
+			else
+			{
+				return 0;
+			}
 		}
 		
 };
@@ -117,7 +161,7 @@ vector<MGLfloat> multibyvec(const vector<MGLfloat> matrix, const vector<MGLfloat
 	return result;
 }
 
-void transformation(const vector<MGLfloat> mat, vector<MGLfloat>& v)
+void transformation(const vector<MGLfloat>& mat, vector<MGLfloat>& v)
 {
 	if (mat.size()!=16)
 	{
@@ -149,7 +193,7 @@ void transformation(const vector<MGLfloat> mat, vector<MGLfloat>& v)
 	}		
 }
 
-void transformation(const vector<MGLfloat> projmat, const vector<MGLfloat> modelmat, vector<MGLfloat>& v)
+void transformation(const vector<MGLfloat>& projmat, const vector<MGLfloat>& modelmat, vector<MGLfloat>& v)
 {
 	if (projmat.size()!=16 || modelmat.size()!=16)
 	{
@@ -255,22 +299,48 @@ void mglReadPixels(MGLsize width,
 			triangles.push_back(triangle2);			
 		}
 	}
-		
-	for (unsigned int j = 0; j < height; j += 1)
+	
+	uint minX,minY,maxX,maxY;
+	vector<MGLfloat> boundary;
+	vector<pair<MGLpixel, MGLfloat>> zbuffer(width*width, pair<MGLpixel, MGLfloat>(0xff,0));
+	MGLpixel tmp = 0;
+	MGLfloat z = 0;
+	
+	for (unsigned int k = 0; k < triangles.size(); k += 1)
 	{
-		for (unsigned int i = 0; i < width; i += 1)
-		{			
-			for (unsigned int k = 0; k < triangles.size(); k += 1)
-			{
-				MGLpixel tmp;
-				if (( tmp = triangles[k].drawpixel(i*pixel_x-1,j*pixel_y-1)))
+		boundary = triangles[k].getboundary();
+		
+		minX = (int) ((boundary[0]+1)/pixel_x);
+		minY = (int) ((boundary[1]+1)/pixel_y);
+		maxX = (int) ((boundary[2]+1)/pixel_x) + 1;
+		maxY = (int) ((boundary[3]+1)/pixel_y) + 1;
+		
+		if(maxX > width) maxX = width;
+		if(maxY > height) maxY = height;
+		
+		for (unsigned int j = minY; j < maxY; j += 1)
+		{
+			for (unsigned int i = minX; i < maxX; i += 1)
+			{				
+				if ( (tmp = triangles[k].drawpixel(i*pixel_x-1,j*pixel_y-1, z)) )
 				{
-					data[i+j*width] = tmp;
+					if (zbuffer[i+j*width].first == 0xff || zbuffer[i+j*width].second > z)
+					{
+						zbuffer[i+j*width] = pair<MGLpixel, MGLfloat>(tmp,z);
+					}					
 				}
-				 
 			}
 		}
 	}
+	
+	for (unsigned int j = 0; j < height; j += 1)
+	{
+		for (unsigned int i = 0; i < width; i += 1)
+		{
+			data[i+j*width] = zbuffer[i+j*width].first;
+		}
+	}
+	
 	
 	clean();
 	
@@ -483,7 +553,16 @@ void mglTranslate(MGLfloat x,
                   MGLfloat y,
                   MGLfloat z)
 {
+	MGLfloat transmat[16]={0};
+	transmat[0] = 1;
+	transmat[5] = 1;
+	transmat[10] = 1;
+	transmat[12] = x;
+	transmat[13] = y;
+	transmat[14] = z;
+	transmat[15] = 1;
 	
+	mglMultMatrix(transmat);	
 }
 
 /**
@@ -496,6 +575,25 @@ void mglRotate(MGLfloat angle,
                MGLfloat y,
                MGLfloat z)
 {
+	double l = sqrt(x*x+y*y+z*z);
+	x = x/l;
+	y = y/l;
+	z = z/l;
+	MGLfloat rotmat[16]={0};
+	MGLfloat c = cos(angle*PI/180);
+	MGLfloat s = sin(angle*PI/180);
+	rotmat[0] = x*x*(1-c)+c;
+	rotmat[1] = y*x*(1-c)+z*s;
+	rotmat[2] = x*z*(1-c)-y*s;
+	rotmat[4] = x*y*(1-c)-z*s;
+	rotmat[5] = y*y*(1-c)+c;
+	rotmat[6] = y*z*(1-c)+x*s;
+	rotmat[8] = x*z*(1-c)+y*s;
+	rotmat[9] = y*z*(1-c)-x*s;
+	rotmat[10] = z*z*(1-c)+c;
+	rotmat[15] = 1;
+	
+	mglMultMatrix(rotmat);
 }
 
 /**
