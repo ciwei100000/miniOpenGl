@@ -89,13 +89,19 @@ for line in gs.readlines():
         if not run_command_with_timeout(grade_cmd, timeout):
             hashed_tests[file]=("TIMEOUT",None)
         else:
-            results_file=open(dir+'/'+token+'.txt')
-            t=time_parse.match(results_file.readline())
-            d=diff_parse.match(results_file.readline())
-            results_file.close()
-            if t: t=float(t.groups()[0])
-            if d: d=float(d.groups()[0])
-            hashed_tests[file]=(d,t)
+            try:
+                report=dir+'/'+token+'.txt'
+                results_file=open(report)
+                t=time_parse.match(results_file.readline())
+                d=diff_parse.match(results_file.readline())
+                results_file.close()
+                if os.path.isfile(report):
+                    os.remove(report) # remove the diff file
+                if t: t=float(t.groups()[0])
+                if d: d=float(d.groups()[0])
+                hashed_tests[file]=(d,t)
+            except:
+                hashed_tests[file]=(None,None)
 
     (d,t)=hashed_tests[file]
     if d=="TIMEOUT":
