@@ -42,7 +42,6 @@ MGLmatrix_mode currentmatmode = MGL_MODELVIEW;
 stack<vector<MGLfloat>>* currentstack = &modelviewstack; //current matrix stack is default to be modelview
 
 vector<vector<MGLfloat>> vertices;
-vector<MGLfloat> planeinfo;
 vector<vector<vector<MGLfloat>>> primitives;
 vector<MGLfloat> currentcolor(3,0);
 
@@ -58,7 +57,6 @@ class Triangle
 {
 	private:
 		vector<vector<MGLfloat>> vertices;
-		//vector<int> sharededges; //need to consider
 		MGLfloat area;
 		MGLfloat minX,minY,maxX,maxY;
 		
@@ -69,11 +67,14 @@ class Triangle
 		
 		MGLpixel drawcolor(const MGLfloat& alpha, const MGLfloat& beta, const MGLfloat& gama)
 		{
-			MGLfloat orialpha, oribeta, origama; //need to improve
+			MGLfloat orialpha, oribeta, origama;
+			
 			MGLfloat k = alpha/vertices[0][3] + beta/vertices[1][3] + gama/vertices[2][3];
+			
 			orialpha = alpha/vertices[0][3]/k;
 			oribeta = beta/vertices[1][3]/k;
 			origama = gama/vertices[2][3]/k;
+			
 			int red = (int) (0.5+255 * (orialpha*(vertices[0])[4]+oribeta*(vertices[1])[4]+origama*(vertices[2])[4]));
 			int green = (int) (0.5+255 * (orialpha*(vertices[0])[5]+oribeta*(vertices[1])[5]+origama*(vertices[2])[5]));
 			int blue = (int) (0.5+255 * (orialpha*(vertices[0])[6]+oribeta*(vertices[1])[6]+origama*(vertices[2])[6]));
@@ -115,18 +116,6 @@ class Triangle
 			return result;
 		}
 		
-		MGLpixel drawpixel(const MGLfloat& x, const MGLfloat& y)
-		{
-			MGLfloat alpha = AreaPixel(vertices[1], vertices[2], x, y)/area;
-			MGLfloat beta = AreaPixel(vertices[2], vertices[0], x, y)/area;
-			MGLfloat gama = AreaPixel(vertices[0], vertices[1], x, y)/area;
-			
-			if(alpha>=0&&alpha<=1&&beta>=0&&beta<=1&&gama>=0&&gama<=1)
-				return drawcolor(alpha, beta, gama); //igore shared edges
-			else
-				return 0;
-		}
-		
 		MGLpixel drawpixel(const MGLfloat& x, const MGLfloat& y, MGLfloat& z)
 		{
 			MGLfloat alpha = AreaPixel(vertices[1], vertices[2], x, y)/area;
@@ -145,6 +134,7 @@ class Triangle
 		}
 		
 };
+
 
 vector<MGLfloat> multibyvec(const vector<MGLfloat> matrix, const vector<MGLfloat> vec)
 {
@@ -169,57 +159,187 @@ void transformation(const vector<MGLfloat>& mat, vector<MGLfloat>& v)
 	vector<MGLfloat> vec(v.begin(),v.begin()+4);
 	vec = multibyvec(mat,vec);
 	
-	
+/*	
 	for (unsigned int i = 0; i < 3; i += 1)
 	{
 		vec[i] = vec[i]/vec[3];
-	}	
-	
-	for (unsigned int j = 0; j < 4; j += 1)
+	}
+*/  
+
+	for (unsigned int i = 0; i < 4; i += 1)
 	{
-		v[j] = vec[j];
-	}		
+		v[i] = vec[i];
+	}
 }
 
-clipedge(vector<MGLfloat>& v1, vector<MGLfloat>& v2)
+MGLfloat dot(int clipplane, const vector<MGLfloat>& v)
 {
-	MGLfloat n[] = {1,0,0,-1,0,0,0,1,0,0,-1,0,0,0,1,0,0,-1};
-	MGLfloat p1[] = {planeinfo[0],planeinfo[2],planeinfo[4]};
-	MGLfloat p2[] = {planeinfo[1],planeinfo[3],planeinfo[5]};
-	vector
-	
-	for (unsigned int i = 0; i < count; i += 1)
+	switch (clipplane)
 	{
-		if (v1[]
-		{	
-			s = ()
-		}
-				
+		case 0:
+			return v[0] + v[3];        /* v * (1 0 0 1) */
+		case 1:
+			return - v[0] + v[3];      /* v * (-1 0 0 1) */
+		case 2:
+			return v[1] + v[3];        /* v * (0 1 0 1) */
+		case 3:
+			return - v[1] + v[3];      /* v * (0 -1 0 1) */
+		case 4:
+			return v[2] + v[3];        /* v * (0 0 1 1) */
+		case 5:
+			return - v[2] + v[3];      /* v * (0 0 -1 1) */
+	}
+	return 0;
+}
+
+uint outcode(const vector<MGLfloat>& v)
+{
+	uint outcode = 0;
+	for (int i = 0; i < 6; ++i)
+	{
+		if (dot(i,v) < 0) outcode |= (1 << i);
+	}
+	return outcode;
+}
+
+vector<MGLfloat> clipline(int clipplane, const vector<MGLfloat>& v1, const vector<MGLfloat>& v2)
+{
+	MGLfloat dot1 = dot(clipplane, v1);
+	MGLfloat dot2 = dot(clipplane, v2);
+	vector<MGLfloat> new_vertex(7,0);
+	
+	MGLfloat s = -dot1/(dot2-dot1);
+	
+	if (s == 1 || s == 0)
+	{
+		new_vertex.clear();
+		return new_vertex;
 	}
 	
+	for (unsigned int i = 0; i < 7; i += 1)
+	{
+		new_vertex[i] = v1[i]+ s * (v2[i]-v1[i]); 
+	}
+
+	return new_vertex;
+
 }
 
-void clipping(vector<vector<MGLfloat>>& primitive)
+void divide_w(vector<MGLfloat>& v)
+{
+	for (unsigned int i = 0; i < 3; i += 1)
+	{
+		v[i] = v[i]/v[3];
+	}
+}
+
+void clipping(vector<vector<MGLfloat>>& primitive, vector<Triangle>& triangles)
 {
 	if (primitive.size()==3)
 	{
-		if (primitive[0][])
-		{
-			
-		}
-			
-	}
+		uint out0 = outcode(primitive[0]);
+		uint out1 = outcode(primitive[1]);
+		uint out2 = outcode(primitive[2]);
 		
-	if (primitives[i].size()==4)
-	{
+		cout<<out0<<endl;
+		cout<<out1<<endl;
+		cout<<out2<<endl;
+		
+		if (!(out0|out1|out2))
+		{
+			cout<<"h"<<endl;
+			divide_w(primitive[0]);
+			divide_w(primitive[1]);
+			divide_w(primitive[2]);
+			Triangle triangle(primitive[0],primitive[1],primitive[2]);
+			triangles.push_back(triangle);
+			return;	
+		}
+		
+		if (out0&out1&out2)
+		{
+			return;
+		}
+		
+		vector<vector<MGLfloat>> tmp_vertices;
+		vector<MGLfloat> tmp;
+		vector<vector<MGLfloat>> tmp_primitive;
+		bool newpoint = false;	
+		
+		for (unsigned int i = 0; i < 6; i += 1)
+		{
+			cout<<"i "<<i<<endl;
+			if (!(out0 & (1<<i)))
+			{
+				cout<<"0"<<endl;
+				tmp_vertices.push_back(primitive[0]);
+			}
+			if ((out0 ^ out1) & (1<<i))
+			{
+				cout<<"01"<<endl;
+				tmp = clipline(i, primitive[0], primitive[1]);
+				if (!tmp.empty())
+				{
+					tmp_vertices.push_back(tmp);
+					newpoint = true;
+				}
+			}
+			if (!(out1 & (1<<i)))
+			{
+				cout<<"1"<<endl;
+				tmp_vertices.push_back(primitive[1]);
+			}
 			
-		Triangle triangle1((primitives[i])[0],(primitives[i])[1],(primitives[i])[2]);
-		//ignare shared edge
-		Triangle triangle2((primitives[i])[0],(primitives[i])[2],(primitives[i])[3]);
-		triangles.push_back(triangle1);
-		triangles.push_back(triangle2);			
+			if ((out1 ^ out2) & (1<<i))
+			{
+				cout<<"12"<<endl;
+				tmp = clipline(i, primitive[1], primitive[2]);
+				if (!tmp.empty())
+				{
+					tmp_vertices.push_back(tmp);
+					newpoint = true;
+				}
+			}
+			
+			if (!(out2 & (1<<i)))
+			{
+				cout<<"2"<<endl;
+				tmp_vertices.push_back(primitive[2]);
+			}
+			
+			if ((out2 ^ out0) & (1<<i))
+			{
+				cout<<"20"<<endl;
+				tmp = clipline(i, primitive[1], primitive[2]);
+				if (!tmp.empty())
+				{
+					tmp_vertices.push_back(tmp);
+					newpoint = true;
+				}
+			}
+			
+			
+			if (tmp_vertices.size() > 2 && newpoint == true)
+			{
+				for (unsigned int j = 2; j < tmp_vertices.size(); j += 1)
+				{
+					cout<<"size "<<tmp_vertices.size()<<endl;
+					tmp_primitive.push_back(tmp_vertices[0]);
+					tmp_primitive.push_back(tmp_vertices[j-1]);
+					tmp_primitive.push_back(tmp_vertices[j]);
+					
+					clipping(tmp_primitive,triangles);
+					tmp_primitive.clear();
+				}
+				break;
+			}
+			
+			tmp_vertices.clear();		
+		}
 	}
+	
 }
+
 void clean()
 {
 	while(!projviewstack.empty()) projviewstack.pop();	
@@ -227,7 +347,6 @@ void clean()
 	currentmatmode = MGL_MODELVIEW;
 	currentstack = &modelviewstack;
 	primitives.clear();
-	planeinfo.clear();
 	currentcolor = vector<MGLfloat>(3,0);
 	currentmatrix = vector<MGLfloat>(identity,identity+16);
 }
@@ -253,25 +372,21 @@ void mglReadPixels(MGLsize width,
 	MGLfloat pixel_y = 2.0f/(height-1);
 	
 	vector<Triangle> triangles;
-	//vector<MGLfloat> projmat,modelmat;
 	vector<MGLfloat> secondmat;
 	
 	if (currentmatmode == MGL_PROJECTION)
 	{
-		//projmat = currentmatrix;
 		mglMatrixMode(MGL_MODELVIEW);		
 		secondmat = currentmatrix;
 		mglMatrixMode(MGL_PROJECTION);
 	}
 	else
 	{
-		//modelmat = currentmatrix;
 		mglMatrixMode(MGL_PROJECTION);
 		secondmat = currentmatrix;
 		mglMatrixMode(MGL_PROJECTION);
 	}
-	
-	
+
 	for (unsigned int i = 0; i < primitives.size(); i += 1)
 	{
 		for (unsigned int j = 0; j < primitives[i].size(); j += 1)
@@ -280,19 +395,9 @@ void mglReadPixels(MGLsize width,
 		}
 		if (primitives[i].size()==3)
 		{
-			Triangle triangle((primitives[i])[0],(primitives[i])[1],(primitives[i])[2]);
-			triangles.push_back(triangle);
+			clipping(primitives[i],triangles);
 		}
-		
-		if (primitives[i].size()==4)
-		{
-			
-			Triangle triangle1((primitives[i])[0],(primitives[i])[1],(primitives[i])[2]);
-			//ignare shared edge
-			Triangle triangle2((primitives[i])[0],(primitives[i])[2],(primitives[i])[3]);
-			triangles.push_back(triangle1);
-			triangles.push_back(triangle2);			
-		}
+
 	}
 	
 	uint minX,minY,maxX,maxY;
@@ -390,8 +495,12 @@ void mglEnd()
 		{
 			transformation(currentmatrix, vertices[i]);
 			primitive.push_back(vertices[i]);
-			if (i % 4 == 3)
+			if (i % 4 == 2 && (i+1) < vertices.size())
 			{
+				primitives.push_back(primitive);
+				primitive[1] = primitive[2];
+				transformation(currentmatrix, vertices[++i]);
+				primitive[2] = vertices[i];				
 				primitives.push_back(primitive);
 				primitive.clear();
 			}
@@ -628,13 +737,6 @@ void mglFrustum(MGLfloat left,
 	perspmat[11] = -1;
 	perspmat[14] = 2*near*far/(near-far); 
 	
-	planeinfo.push_back(left);
-	planeinfo.push_back(right);
-	planeinfo.push_back(bottom);
-	planeinfo.push_back(top);
-	planeinfo.push_back(near);
-	planeinfo.push_back(far);	
-	
 	mglMultMatrix(perspmat);
 }
 
@@ -657,13 +759,6 @@ void mglOrtho(MGLfloat left,
 	orthomat[13] = -(top+bottom)/(top-bottom);
 	orthomat[14] = -(near+far)/(near-far);
 	orthomat[15] = 1;
-	
-	planeinfo.push_back(left);
-	planeinfo.push_back(right);
-	planeinfo.push_back(bottom);
-	planeinfo.push_back(top);
-	planeinfo.push_back(near);
-	planeinfo.push_back(far);
 	
 	mglMultMatrix(orthomat);
 }
