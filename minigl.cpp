@@ -179,38 +179,6 @@ void transformation(const vector<MGLfloat>& mat, vector<MGLfloat>& v)
 		viewpointmat[11] = 1/planeinfo[0];
 		viewpointmat[14] = -planeinfo[1];
 		
-		multibyvec(viewpointmat,vec);
-	}
-	
-	for (unsigned int i = 0; i < 3; i += 1)
-	{
-		vec[i] = vec[i]/vec[3];
-	}	
-	
-	for (unsigned int j = 0; j < 4; j += 1)
-	{
-		v[j] = vec[j];
-	}		
-}
-
-void transformation(const vector<MGLfloat>& projmat, const vector<MGLfloat>& modelmat, vector<MGLfloat>& v)
-{
-	if (projmat.size()!=16 || modelmat.size()!=16)
-	{
-		MGL_ERROR("transformation matrix is wrong!");
-	}
-
-	vector<MGLfloat> vec(v.begin(),v.begin()+4);
-	vec = multibyvec(projmat,multibyvec(modelmat,vec));
-	
-	if (planeinfo[0])
-	{
-		vector<MGLfloat> viewpointmat(16,0);
-		viewpointmat[0] = viewpointmat[5] = 1;
-		viewpointmat[10] = (planeinfo[0]+planeinfo[1])/planeinfo[0];
-		viewpointmat[11] = 1/planeinfo[0];
-		viewpointmat[14] = -planeinfo[1];
-		
 		vec = multibyvec(viewpointmat,vec);
 	}
 	
@@ -224,6 +192,7 @@ void transformation(const vector<MGLfloat>& projmat, const vector<MGLfloat>& mod
 		v[j] = vec[j];
 	}		
 }
+
 
 void clean()
 {
