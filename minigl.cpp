@@ -211,7 +211,7 @@ void transformation(const vector<MGLfloat>& projmat, const vector<MGLfloat>& mod
 		viewpointmat[11] = 1/planeinfo[0];
 		viewpointmat[14] = -planeinfo[1];
 		
-		multibyvec(viewpointmat,vec);
+		vec = multibyvec(viewpointmat,vec);
 	}
 	
 	for (unsigned int i = 0; i < 3; i += 1)
