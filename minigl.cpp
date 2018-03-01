@@ -43,8 +43,6 @@ stack<vector<MGLfloat>>* currentstack = &modelviewstack; //current matrix stack 
 
 vector<vector<MGLfloat>> vertices;
 
-vector<MGLfloat> planeinfo(2,0);
-
 vector<vector<vector<MGLfloat>>> primitives;
 vector<MGLfloat> currentcolor(3,0);
 
@@ -171,16 +169,6 @@ void transformation(const vector<MGLfloat>& mat, vector<MGLfloat>& v)
 	vector<MGLfloat> vec(v.begin(),v.begin()+4);
 	vec = multibyvec(mat,vec);
 	
-	if (planeinfo[0])
-	{
-		vector<MGLfloat> viewpointmat(16,0);
-		viewpointmat[0] = viewpointmat[5] = 1;
-		viewpointmat[10] = (planeinfo[0]+planeinfo[1])/planeinfo[0];
-		viewpointmat[11] = 1/planeinfo[0];
-		viewpointmat[14] = -planeinfo[1];
-		
-		vec = multibyvec(viewpointmat,vec);
-	}
 	
 	for (unsigned int i = 0; i < 3; i += 1)
 	{
@@ -200,7 +188,6 @@ void clean()
 	while(!modelviewstack.empty()) modelviewstack.pop();
 	currentmatmode = MGL_MODELVIEW;
 	currentstack = &modelviewstack;
-	planeinfo = vector<MGLfloat>(2,0);
 	primitives.clear();
 	currentcolor = vector<MGLfloat>(3,0);
 	currentmatrix = vector<MGLfloat>(identity,identity+16);
@@ -602,9 +589,6 @@ void mglFrustum(MGLfloat left,
 	perspmat[11] = -1;
 	perspmat[14] = 2*near*far/(near-far); 	
 	
-	planeinfo[0] = near;
-	planeinfo[1] = far;
-	
 	mglMultMatrix(perspmat);
 }
 
@@ -627,9 +611,6 @@ void mglOrtho(MGLfloat left,
 	orthomat[13] = -(top+bottom)/(top-bottom);
 	orthomat[14] = -(near+far)/(near-far);
 	orthomat[15] = 1;
-	
-	planeinfo[0] = near;
-	planeinfo[1] = far;
 	
 	mglMultMatrix(orthomat);
 }
