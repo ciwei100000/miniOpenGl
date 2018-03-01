@@ -42,7 +42,7 @@ MGLmatrix_mode currentmatmode = MGL_MODELVIEW;
 stack<vector<MGLfloat>>* currentstack = &modelviewstack; //current matrix stack is default to be modelview
 
 vector<vector<MGLfloat>> vertices;
-
+vector<MGLfloat> planeinfo;
 vector<vector<vector<MGLfloat>>> primitives;
 vector<MGLfloat> currentcolor(3,0);
 
@@ -181,7 +181,45 @@ void transformation(const vector<MGLfloat>& mat, vector<MGLfloat>& v)
 	}		
 }
 
+clipedge(vector<MGLfloat>& v1, vector<MGLfloat>& v2)
+{
+	MGLfloat n[] = {1,0,0,-1,0,0,0,1,0,0,-1,0,0,0,1,0,0,-1};
+	MGLfloat p1[] = {planeinfo[0],planeinfo[2],planeinfo[4]};
+	MGLfloat p2[] = {planeinfo[1],planeinfo[3],planeinfo[5]};
+	vector
+	
+	for (unsigned int i = 0; i < count; i += 1)
+	{
+		if (v1[]
+		{	
+			s = ()
+		}
+				
+	}
+	
+}
 
+void clipping(vector<vector<MGLfloat>>& primitive)
+{
+	if (primitive.size()==3)
+	{
+		if (primitive[0][])
+		{
+			
+		}
+			
+	}
+		
+	if (primitives[i].size()==4)
+	{
+			
+		Triangle triangle1((primitives[i])[0],(primitives[i])[1],(primitives[i])[2]);
+		//ignare shared edge
+		Triangle triangle2((primitives[i])[0],(primitives[i])[2],(primitives[i])[3]);
+		triangles.push_back(triangle1);
+		triangles.push_back(triangle2);			
+	}
+}
 void clean()
 {
 	while(!projviewstack.empty()) projviewstack.pop();	
@@ -189,6 +227,7 @@ void clean()
 	currentmatmode = MGL_MODELVIEW;
 	currentstack = &modelviewstack;
 	primitives.clear();
+	planeinfo.clear();
 	currentcolor = vector<MGLfloat>(3,0);
 	currentmatrix = vector<MGLfloat>(identity,identity+16);
 }
@@ -587,7 +626,14 @@ void mglFrustum(MGLfloat left,
 	perspmat[9] = (top+bottom)/(top-bottom);
 	perspmat[10] = (near+far)/(near-far);
 	perspmat[11] = -1;
-	perspmat[14] = 2*near*far/(near-far); 	
+	perspmat[14] = 2*near*far/(near-far); 
+	
+	planeinfo.push_back(left);
+	planeinfo.push_back(right);
+	planeinfo.push_back(bottom);
+	planeinfo.push_back(top);
+	planeinfo.push_back(near);
+	planeinfo.push_back(far);	
 	
 	mglMultMatrix(perspmat);
 }
@@ -611,6 +657,13 @@ void mglOrtho(MGLfloat left,
 	orthomat[13] = -(top+bottom)/(top-bottom);
 	orthomat[14] = -(near+far)/(near-far);
 	orthomat[15] = 1;
+	
+	planeinfo.push_back(left);
+	planeinfo.push_back(right);
+	planeinfo.push_back(bottom);
+	planeinfo.push_back(top);
+	planeinfo.push_back(near);
+	planeinfo.push_back(far);
 	
 	mglMultMatrix(orthomat);
 }
