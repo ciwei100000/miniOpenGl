@@ -249,106 +249,107 @@ void divide_w(vector<MGLfloat>& v)
 
 void clipping(vector<vector<MGLfloat>>& primitive, vector<Triangle>& triangles)
 {
+	
+	stack<vector<vector<MGLfloat>>> primitive_stack;
 	if (primitive.size()==3)
 	{
-		uint out0 = outcode(primitive[0]);
-		uint out1 = outcode(primitive[1]);
-		uint out2 = outcode(primitive[2]);
+	
+		primitive_stack.push(primitive);
 		
-		cout<<out0<<endl;
-		cout<<out1<<endl;
-		cout<<out2<<endl;
-		
-		if (!(out0|out1|out2))
+		while (!primitive_stack.empty())
 		{
-			cout<<"h"<<endl;
-			divide_w(primitive[0]);
-			divide_w(primitive[1]);
-			divide_w(primitive[2]);
-			Triangle triangle(primitive[0],primitive[1],primitive[2]);
-			triangles.push_back(triangle);
-			return;	
-		}
-		
-		if (out0&out1&out2)
-		{
-			return;
-		}
-		
-		vector<vector<MGLfloat>> tmp_vertices;
-		vector<MGLfloat> tmp;
-		vector<vector<MGLfloat>> tmp_primitive;
-		bool newpoint = false;	
-		
-		for (unsigned int i = 0; i < 6; i += 1)
-		{
-			cout<<"i "<<i<<endl;
-			if (!(out0 & (1<<i)))
+			vector<vector<MGLfloat>> tmp_primitive = primitive_stack.top();
+			primitive_stack.pop();
+			
+			uint out0 = outcode(tmp_primitive[0]);
+			uint out1 = outcode(tmp_primitive[1]);
+			uint out2 = outcode(tmp_primitive[2]);
+			
+			//cout<<out0<<out1<<out2<<endl;
+			
+			if (!(out0|out1|out2))
 			{
-				cout<<"0"<<endl;
-				tmp_vertices.push_back(primitive[0]);
+				divide_w(tmp_primitive[0]);
+				divide_w(tmp_primitive[1]);
+				divide_w(tmp_primitive[2]);
+				Triangle triangle(tmp_primitive[0],tmp_primitive[1],tmp_primitive[2]);
+				triangles.push_back(triangle);
+				continue;	
 			}
-			if ((out0 ^ out1) & (1<<i))
+			
+			if (out0&out1&out2)
 			{
-				cout<<"01"<<endl;
-				tmp = clipline(i, primitive[0], primitive[1]);
-				if (!tmp.empty())
+				continue;
+			}
+			
+			vector<vector<MGLfloat>> tmp_vertices;
+			vector<MGLfloat> tmp;
+			
+			
+			bool newpoint = false;
+			
+			for (unsigned int i = 0; i < 6; i += 1)
+			{
+				if (!(out0 & (1<<i)))
 				{
-					tmp_vertices.push_back(tmp);
-					newpoint = true;
+					tmp_vertices.push_back(tmp_primitive[0]);
 				}
-			}
-			if (!(out1 & (1<<i)))
-			{
-				cout<<"1"<<endl;
-				tmp_vertices.push_back(primitive[1]);
-			}
-			
-			if ((out1 ^ out2) & (1<<i))
-			{
-				cout<<"12"<<endl;
-				tmp = clipline(i, primitive[1], primitive[2]);
-				if (!tmp.empty())
+				if ((out0 ^ out1) & (1<<i))
 				{
-					tmp_vertices.push_back(tmp);
-					newpoint = true;
+					tmp = clipline(i, tmp_primitive[0], tmp_primitive[1]);
+					if (!tmp.empty())
+					{
+						tmp_vertices.push_back(tmp);
+						newpoint = true;
+					}
 				}
-			}
-			
-			if (!(out2 & (1<<i)))
-			{
-				cout<<"2"<<endl;
-				tmp_vertices.push_back(primitive[2]);
-			}
-			
-			if ((out2 ^ out0) & (1<<i))
-			{
-				cout<<"20"<<endl;
-				tmp = clipline(i, primitive[2], primitive[0]);
-				if (!tmp.empty())
+				if (!(out1 & (1<<i)))
 				{
-					tmp_vertices.push_back(tmp);
-					newpoint = true;
+					tmp_vertices.push_back(tmp_primitive[1]);
 				}
-			}
 			
-			
-			if (tmp_vertices.size() > 2 && newpoint == true)
-			{
-				for (unsigned int j = 2; j < tmp_vertices.size(); j += 1)
+				if ((out1 ^ out2) & (1<<i))
 				{
-					cout<<"size "<<tmp_vertices.size()<<endl;
-					tmp_primitive.push_back(tmp_vertices[0]);
-					tmp_primitive.push_back(tmp_vertices[j-1]);
-					tmp_primitive.push_back(tmp_vertices[j]);
+					tmp = clipline(i, tmp_primitive[1], tmp_primitive[2]);
+					if (!tmp.empty())
+					{
+						tmp_vertices.push_back(tmp);
+						newpoint = true;
+					}
+				}
+			
+				if (!(out2 & (1<<i)))
+				{
+					tmp_vertices.push_back(tmp_primitive[2]);
+				}
+			
+				if ((out2 ^ out0) & (1<<i))
+				{
+					tmp = clipline(i, tmp_primitive[2], tmp_primitive[0]);
+					if (!tmp.empty())
+					{
+						tmp_vertices.push_back(tmp);
+						newpoint = true;
+					}
+				}
+			
+
+				if (tmp_vertices.size() > 2 && newpoint == true)
+				{
+					for (unsigned int j = 2; j < tmp_vertices.size(); j += 1)
+					{
+						tmp_primitive[0] = tmp_vertices[0];
+						tmp_primitive[1] = tmp_vertices[j-1];
+						tmp_primitive[2] = tmp_vertices[j];
+						
+						primitive_stack.push(tmp_primitive);
 					
-					clipping(tmp_primitive,triangles);
-					tmp_primitive.clear();
-				}
-				break;
+						//tmp_primitive.clear();
+					}
+					break;
+				}		
 			}
 			
-			tmp_vertices.clear();		
 		}
 	}
 	
