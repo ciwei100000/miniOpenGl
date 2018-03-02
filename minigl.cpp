@@ -44,6 +44,8 @@ stack<vector<MGLfloat>>* currentstack = &modelviewstack; //current matrix stack 
 vector<vector<MGLfloat>> vertices;
 vector<vector<vector<MGLfloat>>> primitives;
 vector<MGLfloat> currentcolor(3,0);
+vector<MGLfloat> p1(4,0);
+vector<MGLfloat> p2(4,0);
 
 /**
  * Standard macro to report errors
@@ -56,6 +58,7 @@ inline void MGL_ERROR(const char* description) {
 class Triangle
 {
 	private:
+	
 		vector<vector<MGLfloat>> vertices;
 		MGLfloat area;
 		MGLfloat minX,minY,maxX,maxY;
@@ -136,7 +139,7 @@ class Triangle
 };
 
 
-vector<MGLfloat> multibyvec(const vector<MGLfloat> matrix, const vector<MGLfloat> vec)
+vector<MGLfloat> multibyvec(const vector<MGLfloat>& matrix, const vector<MGLfloat>& vec)
 {
 	vector<MGLfloat> result(4,0);
 	for (unsigned int i = 0; i < 4; i += 1)
@@ -172,22 +175,22 @@ void transformation(const vector<MGLfloat>& mat, vector<MGLfloat>& v)
 	}
 }
 
-MGLfloat dot(int clipplane, const vector<MGLfloat>& v)
+MGLfloat dot(const int& clipplane, const vector<MGLfloat>& v)
 {
 	switch (clipplane)
 	{
 		case 0:
 			return v[0] + v[3];        /* v * (1 0 0 1) */
 		case 1:
-			return - v[0] + v[3];      /* v * (-1 0 0 1) */
+			return -v[0] + v[3];      /* v * (-1 0 0 1) */
 		case 2:
 			return v[1] + v[3];        /* v * (0 1 0 1) */
 		case 3:
-			return - v[1] + v[3];      /* v * (0 -1 0 1) */
+			return -v[1] + v[3];      /* v * (0 -1 0 1) */
 		case 4:
 			return v[2] + v[3];        /* v * (0 0 1 1) */
 		case 5:
-			return - v[2] + v[3];      /* v * (0 0 -1 1) */
+			return -v[2] + v[3];      /* v * (0 0 -1 1) */
 	}
 	return 0;
 }
@@ -207,8 +210,19 @@ vector<MGLfloat> clipline(int clipplane, const vector<MGLfloat>& v1, const vecto
 	MGLfloat dot1 = dot(clipplane, v1);
 	MGLfloat dot2 = dot(clipplane, v2);
 	vector<MGLfloat> new_vertex(7,0);
+	MGLfloat dot3;
 	
-	MGLfloat s = -dot1/(dot2-dot1);
+	
+	if (clipplane % 2 == 0)
+	{
+		dot3 = dot(clipplane, p1);
+	}
+	else
+	{
+		dot3 = dot(clipplane, p2);
+	}
+
+	MGLfloat s = (dot3-dot1)/(dot2-dot1);
 	
 	if (s == 1 || s == 0)
 	{
@@ -310,7 +324,7 @@ void clipping(vector<vector<MGLfloat>>& primitive, vector<Triangle>& triangles)
 			if ((out2 ^ out0) & (1<<i))
 			{
 				cout<<"20"<<endl;
-				tmp = clipline(i, primitive[1], primitive[2]);
+				tmp = clipline(i, primitive[2], primitive[0]);
 				if (!tmp.empty())
 				{
 					tmp_vertices.push_back(tmp);
@@ -737,6 +751,16 @@ void mglFrustum(MGLfloat left,
 	perspmat[11] = -1;
 	perspmat[14] = 2*near*far/(near-far); 
 	
+	p1[0] = left;
+	p1[1] = bottom;
+	p1[2] = near;
+	p1[3] = 1;
+	
+	p2[0] = right * far/near;
+	p2[1] = top * far/near;
+	p2[2] = far;
+	p2[3] = 1;
+	
 	mglMultMatrix(perspmat);
 }
 
@@ -761,6 +785,16 @@ void mglOrtho(MGLfloat left,
 	orthomat[15] = 1;
 	
 	mglMultMatrix(orthomat);
+	
+	p1[0] = left;
+	p1[1] = bottom;
+	p1[2] = near;
+	p1[3] = 1;
+	
+	p2[0] = right;
+	p2[1] = top;
+	p2[2] = far;
+	p2[3] = 1;
 }
 
 /**
