@@ -44,8 +44,6 @@ stack<vector<MGLfloat>>* currentstack = &modelviewstack; //current matrix stack 
 vector<vector<MGLfloat>> vertices;
 vector<vector<vector<MGLfloat>>> primitives;
 vector<MGLfloat> currentcolor(3,0);
-vector<MGLfloat> p1(4,0);
-vector<MGLfloat> p2(4,0);
 
 /**
  * Standard macro to report errors
@@ -210,19 +208,8 @@ vector<MGLfloat> clipline(int clipplane, const vector<MGLfloat>& v1, const vecto
 	MGLfloat dot1 = dot(clipplane, v1);
 	MGLfloat dot2 = dot(clipplane, v2);
 	vector<MGLfloat> new_vertex(7,0);
-	MGLfloat dot3;
-	
-	
-	if (clipplane % 2 == 0)
-	{
-		dot3 = dot(clipplane, p1);
-	}
-	else
-	{
-		dot3 = dot(clipplane, p2);
-	}
 
-	MGLfloat s = (dot3-dot1)/(dot2-dot1);
+	MGLfloat s = -dot1/(dot2-dot1);
 	
 	if (s == 1 || s == 0)
 	{
@@ -265,8 +252,6 @@ void clipping(vector<vector<MGLfloat>>& primitive, vector<Triangle>& triangles)
 			uint out1 = outcode(tmp_primitive[1]);
 			uint out2 = outcode(tmp_primitive[2]);
 			
-			//cout<<out0<<out1<<out2<<endl;
-			
 			if (!(out0|out1|out2))
 			{
 				divide_w(tmp_primitive[0]);
@@ -283,13 +268,13 @@ void clipping(vector<vector<MGLfloat>>& primitive, vector<Triangle>& triangles)
 			}
 			
 			vector<vector<MGLfloat>> tmp_vertices;
-			vector<MGLfloat> tmp;
-			
+			vector<MGLfloat> tmp;	
 			
 			bool newpoint = false;
 			
 			for (unsigned int i = 0; i < 6; i += 1)
 			{
+			
 				if (!(out0 & (1<<i)))
 				{
 					tmp_vertices.push_back(tmp_primitive[0]);
@@ -333,21 +318,23 @@ void clipping(vector<vector<MGLfloat>>& primitive, vector<Triangle>& triangles)
 					}
 				}
 			
-
+				vector<vector<MGLfloat>> tmp_pri;
 				if (tmp_vertices.size() > 2 && newpoint == true)
 				{
 					for (unsigned int j = 2; j < tmp_vertices.size(); j += 1)
 					{
-						tmp_primitive[0] = tmp_vertices[0];
-						tmp_primitive[1] = tmp_vertices[j-1];
-						tmp_primitive[2] = tmp_vertices[j];
+						tmp_pri.push_back(tmp_vertices[0]);
+						tmp_pri.push_back(tmp_vertices[j-1]);
+						tmp_pri.push_back(tmp_vertices[j]);
 						
-						primitive_stack.push(tmp_primitive);
+						primitive_stack.push(tmp_pri);
 					
-						//tmp_primitive.clear();
+						tmp_pri.clear();
 					}
 					break;
-				}		
+				}
+				
+				tmp_vertices.clear();	
 			}
 			
 		}
@@ -752,16 +739,6 @@ void mglFrustum(MGLfloat left,
 	perspmat[11] = -1;
 	perspmat[14] = 2*near*far/(near-far); 
 	
-	p1[0] = left;
-	p1[1] = bottom;
-	p1[2] = near;
-	p1[3] = 1;
-	
-	p2[0] = right * far/near;
-	p2[1] = top * far/near;
-	p2[2] = far;
-	p2[3] = 1;
-	
 	mglMultMatrix(perspmat);
 }
 
@@ -786,16 +763,6 @@ void mglOrtho(MGLfloat left,
 	orthomat[15] = 1;
 	
 	mglMultMatrix(orthomat);
-	
-	p1[0] = left;
-	p1[1] = bottom;
-	p1[2] = near;
-	p1[3] = 1;
-	
-	p2[0] = right;
-	p2[1] = top;
-	p2[2] = far;
-	p2[3] = 1;
 }
 
 /**
